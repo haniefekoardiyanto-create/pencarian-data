@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pencarian Data Asset PC</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            margin: 20px; 
+            background-color: #121212;
+            color: #ffffff;
+        }
+        input, button { 
+            padding: 10px; 
+            margin-bottom: 15px; 
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        input { 
+            width: 300px; 
+            background-color: #222;
+            color: #fff;
+            border: 1px solid #555;
+        }
+        table { 
+            width: 80%; 
+            margin: auto; 
+            border-collapse: collapse; 
+            box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.1);
+            background-color: #1e1e1e;
+            display: none;
+        }
+        th, td { 
+            border: 1px solid #444; 
+            padding: 12px; 
+            text-align: left; 
+            color: #ffffff;
+        }
+        th { 
+            background-color: #f4b41a; 
+            color: black;
+        }
+        tr:nth-child(even) { background-color: #2a2a2a; }
+        tr:hover { background-color: #333; }
+        .action-button, .export-button {
+            background-color: #f4b41a;
+            color: black;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 2px;
+        }
+        .action-button:hover, .export-button:hover {
+            background-color: #e0a810;
+        }
+        .export-button {
+            display: none;
+        }
+        
+        /* Modal Popup */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .modal-content {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            width: 300px;
+            margin: 100px auto;
+            position: relative;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 20px;
+            cursor: pointer;
+        }
+		#updateForm {
+		display: none;
+		margin-top: 20px;
+		padding: 15px;
+		background-color: #2b2b2b;
+		border: 1px solid #444;
+		border-radius: 10px;
+		text-align: left;
+		}
+
+		#updateForm h4 {
+			color: #f4b41a;
+			margin-bottom: 10px;
+		}
+
+		#updateForm input {
+			width: 100%;
+			padding: 8px;
+			margin-bottom: 10px;
+			border-radius: 5px;
+			border: 1px solid #555;
+			background-color: #1a1a1a;
+			color: #fff;
+		}
+
+		#updateForm button {
+			width: 100%;
+		}
+
+    </style>
+</head>
+<body>
+
+    <h2>Pencarian Data dari Google Spreadsheet</h2>
+    <input type="text" id="search" placeholder="Cari berdasarkan IP atau EXT" onkeyup="searchData()">
+    <button id="exportButton" class="export-button" onclick="exportToExcel()">Export IP dan EXT to Excel</button>
+
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>No ID</th>
+                <th>IP Address</th>
+                <th>User Windows</th>
+                <th>Ext Avaya</th>
+                <th>Nama Team</th>
+                <th>Hostname</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody id="dataBody">
+        </tbody>
+    </table>
+
+    <!-- Modal Popup -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3>Detail Aksi</h3>
+            <button id="vncButton" class="action-button">Buka VNC</button>
+            <button id="kendalaButton" class="action-button">Input Kendala</button>
+            <button id="updateButton" class="action-button">Update Asset</button>
+			 <!-- Form Update Asset -->
+    <!-- Form Update Asset -->
+	<div id="updateForm">
+	<h4>Update Asset</h4>
+	<input id="updateUser" placeholder="User Windows">
+	<input id="updateExt" placeholder="Ext Avaya">
+	<input id="updateTeam" placeholder="Nama Team">
+	<button id="saveUpdate" class="action-button">Simpan Perubahan</button>
+	</div>
+
+  </div>
+</div>
+     
+
+    <script>
+	
+        let selectedIp = "";
+
+        function fetchData() {
+            const spreadsheetId = "1KZmGopw5jw-HdUC6Q2GfTXrPqgl6OHxtWSJ2sjcduNg"; 
+            const sheetName = "Database"; 
+            const apiKey = "AIzaSyDp-1vuvrgl0h2NSwGqAqX3A_guON_Yot8"; 
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}?key=${apiKey}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.values) {
+                        console.error("Data tidak ditemukan.");
+                        return;
+                    }
+                    const rows = data.values;
+                    const tableBody = document.getElementById("dataBody");
+
+                    rows.slice(1).forEach(row => {
+                        let tr = document.createElement("tr");
+
+                        let cols = [0, 1, 2, 4, 5, 6];
+                        cols.forEach(index => {
+                            let td = document.createElement("td");
+                            td.textContent = row[index] || "-";
+                            tr.appendChild(td);
+                        });
+
+                        let actionTd = document.createElement("td");
+                        let detailBtn = document.createElement("button");
+                        detailBtn.textContent = "Detail";
+                        detailBtn.className = "action-button";
+                        detailBtn.onclick = () => openModal(row[1]);
+
+                        actionTd.appendChild(detailBtn);
+                        tr.appendChild(actionTd);
+                        tableBody.appendChild(tr);
+                    });
+                })
+                .catch(error => console.error("Error fetching data:", error));
+        }
+
+        function searchData() {
+            let input = document.getElementById("search").value.toLowerCase();
+            let rows = document.querySelectorAll("#dataBody tr");
+            let table = document.getElementById("dataTable");
+            let exportButton = document.getElementById("exportButton");
+            
+            let found = false;
+            rows.forEach(row => {
+                let text = row.innerText.toLowerCase();
+                if (text.includes(input)) {
+                    row.style.display = "";
+                    found = true;
+                } else {
+                    row.style.display = "none";
+                }
+            });
+            
+            table.style.display = found ? "table" : "none";
+            exportButton.style.display = found ? "inline-block" : "none";
+        }
+		
+function exportToExcel() {
+        let table = document.getElementById("dataTable");
+        let rows = table.querySelectorAll("tbody tr");
+        let csvContent = "data:text/csv;charset=utf-8,IP Address,Ext Avaya,Nama Team\n";
+
+        let foundRows = [];
+
+        rows.forEach(row => {
+            if (row.style.display !== "none") {
+                let cols = row.querySelectorAll("td");
+                let rowData = [
+                    cols[1] ? cols[1].innerText : "", 
+                    cols[3] ? cols[3].innerText : "", 
+                    cols[4] ? cols[4].innerText : ""
+                ];
+                foundRows.push(rowData);
+            }
+        });
+document.getElementById("updateButton").onclick = () => {
+    document.getElementById("updateForm").style.display = "block";
+};
+
+document.getElementById("saveUpdate").onclick = () => {
+    const user = document.getElementById("updateUser").value;
+    const ext = document.getElementById("updateExt").value;
+    const team = document.getElementById("updateTeam").value;
+
+    fetch("https://script.google.com/macros/s/AKfycbwz8Dsdb7FstIxM0NnByH-vxpjYP3oKIudR-bH78L6bj3rCi0FeLbiEGKsf3kWPFyOU5Q/exec", {
+        method: "POST",
+        body: JSON.stringify({
+            ip: selectedIp,
+            user: user,
+            ext: ext,
+            team: team
+        }),
+        headers: {
+            "Content-Type": "application/json"
+        }
+    })
+    .then(response => response.text())
+    .then(data => {
+        alert("Update berhasil: " + data);
+        closeModal();
+        location.reload();  // Refresh biar data baru kelihatan
+    })
+    .catch(error => {
+        alert("Terjadi kesalahan saat mengupdate: " + error);
+    });
+};
+
+        if (foundRows.length === 0) {
+            alert("Tidak ada data yang dapat diekspor!");
+            return;
+        }
+
+        foundRows.forEach(rowData => {
+            csvContent += rowData.join(",") + "\n";
+        });
+
+        let fileName = foundRows[0][2] ? foundRows[0][2].replace(/\s+/g, "_") : "data_asset_pc";
+        let encodedUri = encodeURI(csvContent);
+        let link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", fileName + ".csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+    document.getElementById("updateForm").style.display = "none";
+}
+
+  function openModal(ip) {
+    selectedIp = ip;
+    document.getElementById("modal").style.display = "block";
+    document.getElementById("updateForm").style.display = "none";
+
+    document.getElementById("vncButton").onclick = () => window.open(`vnc://${selectedIp}`, '_blank');
+
+    document.getElementById("updateButton").onclick = () => {
+        document.getElementById("updateForm").style.display = "block";
+    };
+
+    document.getElementById("saveUpdate").onclick = () => {
+        const user = document.getElementById("updateUser").value;
+        const ext = document.getElementById("updateExt").value;
+        const team = document.getElementById("updateTeam").value;
+
+        console.log("Data dikirim:", { ip: selectedIp, user, ext, team }); // Debug
+
+        fetch("https://script.google.com/macros/s/AKfycbwz8Dsdb7FstIxM0NnByH-vxpjYP3oKIudR-bH78L6bj3rCi0FeLbiEGKsf3kWPFyOU5Q/exec", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                ip: selectedIp,
+                user: user,
+                ext: ext,
+                team: team
+            })
+        })
+        .then(response => response.text())
+        .then(data => {
+            alert("Update berhasil: " + data);
+            closeModal();
+            location.reload();
+        })
+        .catch(error => {
+            alert("Terjadi kesalahan saat mengupdate: " + error);
+        });
+    };
+}
+
+
+		
+
+       fetchData();
+    </script>
+
+</body>
+</html>
